@@ -10,11 +10,11 @@ using Newtonsoft.Json;
 
 namespace PvPToggle
 {
-    [ApiVersion(1, 16)]
+    [ApiVersion(1, 19)]
     public class PvpToggle : TerrariaPlugin
     {
         public static readonly List<Player> PvPplayer = new List<Player>();
-        private static readonly List<string> TeamColors = new List<string> { "white", "red", "green", "blue", "yellow" };
+        private static readonly List<string> TeamColors = new List<string> { "white", "red", "green", "blue", "yellow", "purple" };
         private static PvPConfig Config { get; set; }
 
         public override Version Version
@@ -159,24 +159,18 @@ namespace PvPToggle
                 args.Player.SendErrorMessage("Command blocked by server configuration");
                 return;
             }
-
-            if (args.Parameters.Count != 0)
-            {
-                args.Player.SendErrorMessage("Invalid Syntax. Try /pvp");
-                return;
-            }
-
+            
             if (!Main.player[args.Player.Index].hostile)
             {
                 Main.player[args.Player.Index].hostile = true;
                 NetMessage.SendData((int) PacketTypes.TogglePvp, -1, -1, "", args.Player.Index);
-                args.Player.SendInfoMessage("Your PvP is now enabled.");
+                args.Player.SendSuccessMessage("Your PvP is now enabled.");
             }
             else if (Main.player[args.Player.Index].hostile)
             {
                 Main.player[args.Player.Index].hostile = false;
                 NetMessage.SendData((int) PacketTypes.TogglePvp, -1, -1, "", args.Player.Index);
-                args.Player.SendInfoMessage("Your PvP is now disabled.");
+                args.Player.SendSuccessMessage("Your PvP is now disabled.");
             }
         }
 
@@ -187,9 +181,9 @@ namespace PvPToggle
         private static void TogglePvP(CommandArgs args)
         {
 
-            if (args.Parameters.Count != 1)
+            if (args.Parameters.Count == 0)
             {
-                args.Player.SendErrorMessage("You used too many parameters! Try /tpvp \"player's name\"!");
+                args.Player.SendErrorMessage("Invalid Syntax: /tpvp <player>");
             }
 
             var plStr = String.Join(" ", args.Parameters);
@@ -197,13 +191,12 @@ namespace PvPToggle
             var ply = TShock.Utils.FindPlayer(plStr);
             if (ply.Count < 1)
             {
-                args.Player.SendErrorMessage("No players matched that name!");
+                args.Player.SendErrorMessage($"Unknown Player: {plStr}");
             }
             else if (ply.Count > 1)
             {
-                args.Player.SendErrorMessage("More than one player has that name!");
+                TShock.Utils.SendMultipleMatchError(args.Player, ply.Select(p => p.Name));
             }
-
             else
             {
                 var player = ply[0];
@@ -214,8 +207,11 @@ namespace PvPToggle
                     {
                         Main.player[player.Index].hostile = true;
                         NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
-                        args.Player.SendInfoMessage(string.Format("You have turned {0}'s PvP on!", player.Name));
-                        player.SendInfoMessage(string.Format("{0} has turned your PvP on!", args.Player.Name));
+                        args.Player.SendSuccessMessage($"You have turned {player.Name}'s PvP on!");
+                        if (!args.Silent)
+                            player.SendInfoMessage($"{args.Player.Name} has turned your PvP on!");
+                        else
+                            player.SendInfoMessage("Your PvP has been turned on!");
 
                     }
                     else if (Main.player[player.Index].hostile)
@@ -223,8 +219,11 @@ namespace PvPToggle
                         Main.player[player.Index].hostile = false;
                         NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
 
-                        args.Player.SendInfoMessage(string.Format("You have turned {0}'s PvP off!", player.Name));
-                        player.SendInfoMessage(string.Format("{0} has turned your PvP off!", args.Player.Name));
+                        args.Player.SendInfoMessage($"You have turned {player.Name}'s PvP off!");
+                        if (!args.Silent)
+                            player.SendInfoMessage($"{args.Player.Name} has turned your PvP off!");
+                        else
+                            player.SendInfoMessage("Your PvP has been turned on!");
                     }
                 }
             }
@@ -251,7 +250,7 @@ namespace PvPToggle
 				NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
 				args.Player.SendData(PacketTypes.PlayerTeam, "", args.Player.Index);
                 NetMessage.SendData((int) PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
-                args.Player.SendSuccessMessage("Joined the {0} team!", team);
+                args.Player.SendSuccessMessage($"Joined the {team} team!");
             }
             else
                 args.Player.SendErrorMessage("Invalid team color!");
@@ -262,7 +261,7 @@ namespace PvPToggle
 
         private static void ToggleTeam(CommandArgs args)
         {
-            if (args.Parameters.Count < 2 || args.Parameters.Count > 3)
+            if (args.Parameters.Count != 2)
             {
                 args.Player.SendErrorMessage("Invalid syntax! Proper syntax: /tteam [player] [team color]");
                 return;
@@ -270,7 +269,7 @@ namespace PvPToggle
             var foundplr = TShock.Utils.FindPlayer(args.Parameters[0]);
             if (foundplr.Count == 0)
             {
-                args.Player.SendErrorMessage("Invalid player!");
+                args.Player.SendErrorMessage($"Unknown Player: {args.Parameters[0]}");
                 return;
             }
             if (foundplr.Count > 1)
@@ -286,8 +285,11 @@ namespace PvPToggle
 				foundplr[0].TPlayer.team = TeamColors.IndexOf(team);
 				NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", foundplr[0].Index);
 				foundplr[0].SendData(PacketTypes.PlayerTeam, "", foundplr[0].Index);
-                foundplr[0].SendInfoMessage("{0} changed you to the {1} team!", args.Player.Name, team);
-                args.Player.SendSuccessMessage("Changed {0} to the {1} team!", foundplr[0].Name, team);
+                if (!args.Silent)
+                    foundplr[0].SendInfoMessage($"{args.Player.Name} changed you to the {team} team!");
+                else
+                    foundplr[0].SendInfoMessage($"You are now on the {team} team!");
+                args.Player.SendSuccessMessage($"Changed {foundplr[0].Name} to the {team} team!");
             }
             else
                 args.Player.SendErrorMessage("Invalid team color!");
@@ -298,11 +300,6 @@ namespace PvPToggle
         #region BloodToggle
         private static void BloodToggle(CommandArgs args)
         {
-            if (args.Parameters.Count != 0)
-            {
-                args.Player.SendErrorMessage("Usage: /bloodmoonpvp");
-                return;
-            }
             Config.ForcePvPOnBloodMoon = !Config.ForcePvPOnBloodMoon;
 
             args.Player.SendInfoMessage(Config.ForcePvPOnBloodMoon
@@ -317,7 +314,7 @@ namespace PvPToggle
         {
             if (args.Parameters.Count != 1)
             {
-                args.Player.SendErrorMessage("Incorrect syntax. Use /fpvp \"player's name\" or *");
+                args.Player.SendErrorMessage("Invalid syntax. Use /fpvp <player name> (or /fpvp *).");
                 return;
             }
 
@@ -332,7 +329,7 @@ namespace PvPToggle
             if (players.Count > 1
                 && ((plStr != "*") && (plStr != "all") && (plStr != "*off") && (plStr != "alloff")))
             {
-                args.Player.SendErrorMessage("More than one player matched that name");
+                TShock.Utils.SendMultipleMatchError(args.Player, players.Select(p => p.Name));
                 return;
             }
 
@@ -340,43 +337,47 @@ namespace PvPToggle
             {
                 foreach (var pl in PvPplayer)
                     pl.PvPType = "forceon";
-                TSPlayer.All.SendInfoMessage(string.Format("{0} has forced on everyone's PvP", args.Player.Name));
+
+                if (!args.Silent)
+                    TSPlayer.All.SendInfoMessage($"{args.Player.Name} has forced on everyone's PvP");
                 return;
             }
             if (plStr == "*off" || plStr == "alloff")
             {
                 foreach (var pl in PvPplayer)
                     pl.PvPType = "";
-                TSPlayer.All.SendInfoMessage(string.Format("{0} has stopped forcing everyone's PvP on. It can now be turned off", args.Player.Name));
+
+                if (!args.Silent)
+                    TSPlayer.All.SendInfoMessage($"{args.Player.Name} has stopped forcing everyone's PvP on. It can now be turned off.");
             }
 
             else
             {
-                if (args.Parameters.Count == 1 && players.Count == 1)
+
+                var plr = players[0];
+
+                PvPToggle.Player player = Tools.GetPlayerByIndex(players[0].Index);
+
+                if (player.PvPType == "")
                 {
-                    var plr = players[0];
-
-                    var player = Tools.GetPlayerByIndex(players[0].Index);
-
-                    if (player.PvPType == "")
-                    {
-                        player.PvPType = "forceon";
-                        Main.player[plr.Index].hostile = true;
-                        NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", plr.Index, 0f, 0f, 0f);
-                        plr.SendInfoMessage(string.Format("{0} has forced your PvP on!", args.Player.Name));
-                        args.Player.SendInfoMessage(string.Format("You have forced {0}'s PvP on!", player.PlayerName));
-                    }
+                    player.PvPType = "forceon";
+                    Main.player[plr.Index].hostile = true;
+                    NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", plr.Index, 0f, 0f, 0f);
+                    if (!args.Silent)
+                        plr.SendInfoMessage($"{args.Player.Name} has forced your PvP on!");
+                    args.Player.SendSuccessMessage($"You have forced {player.PlayerName}'s PvP on!");
+                }
 
 
-                    else if (player.PvPType == "forceon")
-                    {
-                        player.PvPType = "";
-                        Main.player[plr.Index].hostile = false;
-                        NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", plr.Index, 0f, 0f, 0f);
-                        plr.SendInfoMessage(string.Format("{0} has turned your PvP off!", args.Player.Name));
-                        args.Player.SendInfoMessage(string.Format("You have turned {0}'s PvP off!", player.PlayerName));
+                else if (player.PvPType == "forceon")
+                {
+                    player.PvPType = "";
+                    Main.player[plr.Index].hostile = false;
+                    NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", plr.Index, 0f, 0f, 0f);
+                    if (!args.Silent)
+                        plr.SendInfoMessage($"{args.Player.Name} has turned your PvP off!");
+                    args.Player.SendInfoMessage($"You have turned {player.PlayerName}'s PvP off!");
 
-                    }
                 }
             }
         }
@@ -386,9 +387,9 @@ namespace PvPToggle
     #region Tools
     public class Tools
     {
-        public static Player GetPlayerByIndex(int index)
+        public static PvPToggle.Player GetPlayerByIndex(int index)
         {
-            return PvpToggle.PvPplayer.FirstOrDefault(player => player.Index == index);
+            return PvPToggle.PvpToggle.PvPplayer.FirstOrDefault(player => player.Index == index);
         }
     }
     #endregion
