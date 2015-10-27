@@ -1,4 +1,8 @@
-﻿using System;
+﻿/*
+ * Original plugin by White.
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Terraria;
@@ -10,7 +14,7 @@ using Newtonsoft.Json;
 
 namespace PvPToggle
 {
-    [ApiVersion(1, 21)]
+    [ApiVersion(1, 22)]
     public class PvpToggle : TerrariaPlugin
     {
         public static readonly List<Player> PvPplayer = new List<Player>();
@@ -23,7 +27,7 @@ namespace PvPToggle
         }
         public override string Author
         {
-            get { return "White"; }
+            get { return "Zaicon"; }
         }
         public override string Name
         {
