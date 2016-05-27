@@ -14,7 +14,7 @@ using Newtonsoft.Json;
 
 namespace PvPToggle
 {
-    [ApiVersion(1, 22)]
+    [ApiVersion(1, 23)]
     public class PvpToggle : TerrariaPlugin
     {
         public static readonly List<Player> PvPplayer = new List<Player>();
@@ -391,9 +391,9 @@ namespace PvPToggle
     #region Tools
     public class Tools
     {
-        public static PvPToggle.Player GetPlayerByIndex(int index)
+        public static Player GetPlayerByIndex(int index)
         {
-            return PvPToggle.PvpToggle.PvPplayer.FirstOrDefault(player => player.Index == index);
+            return PvpToggle.PvPplayer.FirstOrDefault(player => player.Index == index);
         }
     }
     #endregion
