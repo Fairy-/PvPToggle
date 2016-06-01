@@ -14,7 +14,7 @@ using Newtonsoft.Json;
 
 namespace PvPToggle
 {
-    [ApiVersion(1, 24)]
+    [ApiVersion(1, 23)]
     public class PvpToggle : TerrariaPlugin
     {
         public static readonly List<Player> PvPplayer = new List<Player>();
