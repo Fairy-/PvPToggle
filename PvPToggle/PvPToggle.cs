@@ -11,6 +11,7 @@ using TShockAPI;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
+using TShockAPI.Hooks;
 
 namespace PvPToggle
 {
@@ -45,6 +46,7 @@ namespace PvPToggle
             ServerApi.Hooks.NetGreetPlayer.Register(this, OnGreetPlayer);
             ServerApi.Hooks.GameInitialize.Register(this, OnInitialize);
             ServerApi.Hooks.ServerLeave.Register(this, OnLeave);
+			GeneralHooks.ReloadEvent += onReload;
 
             Config = new PvPConfig();
         }
@@ -57,7 +59,8 @@ namespace PvPToggle
                 ServerApi.Hooks.NetGreetPlayer.Deregister(this, OnGreetPlayer);
                 ServerApi.Hooks.GameInitialize.Deregister(this, OnInitialize);
                 ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
-            }
+				GeneralHooks.ReloadEvent -= onReload;
+			}
             base.Dispose(disposing);
         }
 
@@ -93,7 +96,15 @@ namespace PvPToggle
             {
                 foreach (var player in PvPplayer)
                 {
-                    switch (player.PvPType)
+					if (Config.antiPvPRegions.ToList().Contains(player.TSPlayer.CurrentRegion.Name) && Main.player[player.Index].hostile)
+					{
+						Main.player[player.Index].hostile = false;
+						player.TSPlayer.SendWarningMessage("You are in a no-PvP zone.");
+						NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
+						return;
+					}
+						
+					switch (player.PvPType)
                     {
                         case "forceon":
                             if (Main.player[player.Index].hostile) continue;
@@ -136,11 +147,19 @@ namespace PvPToggle
                 ply.TSPlayer.SendInfoMessage("Your PvP has been forced on for the blood moon!");
             }
         }
-        #endregion
+		#endregion
 
-        #region Config
+		#region onReload
+		private static void onReload(ReloadEventArgs args)
+		{
+			SetUpConfig();
+			TShock.Log.Info("Reloaded PvPToggle config.");
+		}
+		#endregion
 
-        private static void SetUpConfig()
+		#region Config
+
+		private static void SetUpConfig()
         {
             var configPath = Path.Combine(TShock.SavePath, "PvPtoggle.json");
             (Config = PvPConfig.Read(configPath)).Write(configPath);
@@ -396,19 +415,20 @@ namespace PvPToggle
             return PvpToggle.PvPplayer.FirstOrDefault(player => player.Index == index);
         }
     }
-    #endregion
+	#endregion
 
-    #region Config
-    public class PvPConfig
-    {
-        public bool ForcePvPOnBloodMoon;
+	#region Config
+	public class PvPConfig
+	{
+		public bool ForcePvPOnBloodMoon;
+		public string[] antiPvPRegions;
 
-        public void Write(string path)
-        {
-            File.WriteAllText(path, JsonConvert.SerializeObject(this, Formatting.Indented));
-        }
+		public void Write(string path)
+		{
+			File.WriteAllText(path, JsonConvert.SerializeObject(this, Formatting.Indented));
+		}
 
-        public static PvPConfig Read(string path)
+		public static PvPConfig Read(string path)
         {
             if (!File.Exists(path))
                 return new PvPConfig();
