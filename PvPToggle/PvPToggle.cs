@@ -96,10 +96,11 @@ namespace PvPToggle
             {
                 foreach (var player in PvPplayer)
                 {
-					if (Config.antiPvPRegions.ToList().Contains(player.TSPlayer.CurrentRegion.Name) && Main.player[player.Index].hostile)
+					var plr = TShock.Players[player.Index];
+					if (plr.CurrentRegion != null && Config.antiPvPRegions.ToList().Contains(plr.CurrentRegion.Name) && Main.player[player.Index].hostile)
 					{
 						Main.player[player.Index].hostile = false;
-						player.TSPlayer.SendWarningMessage("You are in a no-PvP zone.");
+						plr.SendWarningMessage("You are in a no-PvP zone.");
 						NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
 						return;
 					}
