@@ -11,6 +11,7 @@ namespace PvPToggle
     {
         public string PvPType = "";
         public int Index;
+        public int DBTeam = 0;
         public TSPlayer TSPlayer { get { return TShock.Players[Index]; } }
         public string PlayerName { get { return Main.player[Index].name; } }
 

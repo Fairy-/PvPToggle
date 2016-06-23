@@ -22,6 +22,10 @@ namespace PvPToggle
         private static readonly List<string> TeamColors = new List<string> { "white", "red", "green", "blue", "yellow", "purple" };
         private static PvPConfig Config { get; set; }
 
+        private static PvPManager pvpdb = new PvPManager(TShock.DB);
+
+        private static bool PvPLock = false;
+
         public override Version Version
         {
             get { return Assembly.GetExecutingAssembly().GetName().Version; }
@@ -49,6 +53,7 @@ namespace PvPToggle
 			GeneralHooks.ReloadEvent += onReload;
 
             Config = new PvPConfig();
+
         }
 
         protected override void Dispose(bool disposing)
@@ -78,14 +83,24 @@ namespace PvPToggle
             Commands.ChatCommands.Add(new Command("pvp.team", ToggleTeam, "tteam"));
             Commands.ChatCommands.Add(new Command("pvp.force", ForceToggle, "forcepvp", "fpvp"));
             Commands.ChatCommands.Add(new Command("pvp.moon", BloodToggle, "bloodmoonpvp", "bmpvp"));
+            Commands.ChatCommands.Add(new Command("pvp.teamlock", LockToggle, "lockpvp", "lpvp"));
 
             SetUpConfig();
         }
 
         private static void OnGreetPlayer(GreetPlayerEventArgs args)
         {
+            Player player = new Player(args.Who);
+            if(!pvpdb.GetPlayerTeam(player.TSPlayer.User.ID).exists)
+            {
+                pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, 0);
+            }
+
+            player.DBTeam = pvpdb.GetPlayerTeam(player.TSPlayer.User.ID).teamid;
+
             lock (PvPplayer)
-                PvPplayer.Add(new Player(args.Who));
+                PvPplayer.Add(player);
+
         }
 
         #region OnUpdate
@@ -332,6 +347,15 @@ namespace PvPToggle
         }
         #endregion
 
+        #region LockToggle
+
+        private static void LockToggle(CommandArgs args)
+        {
+
+        }
+
+        #endregion
+
         #region ForceToggle
 
         private static void ForceToggle(CommandArgs args)
@@ -359,6 +383,7 @@ namespace PvPToggle
 
             if (plStr == "*" || plStr == "all")
             {
+                PvPLock = true;
                 foreach (var pl in PvPplayer)
                     pl.PvPType = "forceon";
 
