@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TShockAPI.DB;
 using MySql.Data.MySqlClient;
 using TShockAPI;
@@ -59,7 +55,7 @@ namespace PvPToggle
                 {
                     database.Query(
                         "INSERT INTO tsPvP (Account, Team) VALUES (@0, @1);",
-                        player.accountid, player.teamid);
+                        accountid, teamid);
                     return true;
                 }
                 catch (Exception ex)

@@ -22,7 +22,7 @@ namespace PvPToggle
         private static readonly List<string> TeamColors = new List<string> { "white", "red", "green", "blue", "yellow", "purple" };
         private static PvPConfig Config { get; set; }
 
-        private static PvPManager pvpdb = new PvPManager(TShock.DB);
+        private static PvPManager pvpdb { get; set; }
 
         private static bool PvPLock = false;
 
@@ -51,7 +51,7 @@ namespace PvPToggle
             ServerApi.Hooks.GameInitialize.Register(this, OnInitialize);
             ServerApi.Hooks.ServerLeave.Register(this, OnLeave);
 			GeneralHooks.ReloadEvent += onReload;
-
+            pvpdb = new PvPManager(TShock.DB);
             Config = new PvPConfig();
 
         }
@@ -90,6 +90,7 @@ namespace PvPToggle
 
         private static void OnGreetPlayer(GreetPlayerEventArgs args)
         {
+            
             Player player = new Player(args.Who);
             if(!pvpdb.GetPlayerTeam(player.TSPlayer.User.ID).exists)
             {
@@ -185,6 +186,9 @@ namespace PvPToggle
 
         private static void OnLeave(LeaveEventArgs args)
         {
+            Player player = new Player(args.Who);
+            pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, player.TSPlayer.Team);
+
             lock (PvPplayer)
                 PvPplayer.RemoveAll(plr => plr.Index == args.Who);
         }
