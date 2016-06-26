@@ -24,7 +24,9 @@ namespace PvPToggle
 
         private static PvPManager pvpdb { get; set; }
 
-        private static bool PvPLock = false;
+        private static bool forcePvP = false;
+
+        private static bool forceTeam = false;
 
         public override Version Version
         {
@@ -50,7 +52,8 @@ namespace PvPToggle
             ServerApi.Hooks.NetGreetPlayer.Register(this, OnGreetPlayer);
             ServerApi.Hooks.GameInitialize.Register(this, OnInitialize);
             ServerApi.Hooks.ServerLeave.Register(this, OnLeave);
-			GeneralHooks.ReloadEvent += onReload;
+            GeneralHooks.ReloadEvent += onReload;
+            GetDataHandlers.PlayerTeam += onPlayerTeamChange;
             pvpdb = new PvPManager(TShock.DB);
             Config = new PvPConfig();
 
@@ -64,8 +67,8 @@ namespace PvPToggle
                 ServerApi.Hooks.NetGreetPlayer.Deregister(this, OnGreetPlayer);
                 ServerApi.Hooks.GameInitialize.Deregister(this, OnInitialize);
                 ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
-				GeneralHooks.ReloadEvent -= onReload;
-			}
+                GeneralHooks.ReloadEvent -= onReload;
+            }
             base.Dispose(disposing);
         }
 
@@ -83,26 +86,50 @@ namespace PvPToggle
             Commands.ChatCommands.Add(new Command("pvp.team", ToggleTeam, "tteam"));
             Commands.ChatCommands.Add(new Command("pvp.force", ForceToggle, "forcepvp", "fpvp"));
             Commands.ChatCommands.Add(new Command("pvp.moon", BloodToggle, "bloodmoonpvp", "bmpvp"));
-            Commands.ChatCommands.Add(new Command("pvp.teamlock", LockToggle, "lockpvp", "lpvp"));
+            Commands.ChatCommands.Add(new Command("pvp.teamforce", LockToggle, "forceteam", "fteam"));
 
             SetUpConfig();
         }
 
         private static void OnGreetPlayer(GreetPlayerEventArgs args)
         {
-            
+
             Player player = new Player(args.Who);
-            if(!pvpdb.GetPlayerTeam(player.TSPlayer.User.ID).exists)
+            if (!pvpdb.GetPlayerTeam(player.TSPlayer.User.ID).exists)
             {
                 pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, 0);
             }
 
             player.DBTeam = pvpdb.GetPlayerTeam(player.TSPlayer.User.ID).teamid;
 
+            if(forceTeam)
+            {
+                player.TSPlayer.SendInfoMessage("Force team is enabled, your team has been set to " + TeamColors[player.DBTeam]);
+                player.TSPlayer.SetTeam(player.DBTeam);
+                player.isForcedTeam = true;
+            }
+
+            if(forcePvP)
+            {
+                player.TSPlayer.SendInfoMessage("Force PvP is enabled, your PvP status has been set to on");
+                player.PvPType = "forceon";
+                NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
+            }
+
             lock (PvPplayer)
                 PvPplayer.Add(player);
 
         }
+
+        #region onPlayerTeamChange
+        private void onPlayerTeamChange(object sender, GetDataHandlers.PlayerTeamEventArgs args)
+        {
+            var player = TShock.Players[args.PlayerId];
+            
+            player.SendInfoMessage("TEAM CHANGED: " + args.Team);
+        }
+
+        #endregion
 
         #region OnUpdate
 
@@ -112,21 +139,21 @@ namespace PvPToggle
             {
                 foreach (var player in PvPplayer)
                 {
-					var plr = TShock.Players[player.Index];
-					if (plr.CurrentRegion != null && Config.antiPvPRegions.ToList().Contains(plr.CurrentRegion.Name) && Main.player[player.Index].hostile)
-					{
-						Main.player[player.Index].hostile = false;
-						plr.SendWarningMessage("You are in a no-PvP zone.");
-						NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
-						return;
-					}
-						
-					switch (player.PvPType)
+                    var plr = TShock.Players[player.Index];
+                    if (plr.CurrentRegion != null && Config.antiPvPRegions.ToList().Contains(plr.CurrentRegion.Name) && Main.player[player.Index].hostile)
+                    {
+                        Main.player[player.Index].hostile = false;
+                        plr.SendWarningMessage("You are in a no-PvP zone.");
+                        NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
+                        return;
+                    }
+
+                    switch (player.PvPType)
                     {
                         case "forceon":
                             if (Main.player[player.Index].hostile) continue;
                             Main.player[player.Index].hostile = true;
-                            NetMessage.SendData((int) PacketTypes.TogglePvp, -1, -1, "", player.Index);
+                            NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
                             player.TSPlayer.SendWarningMessage("Your PvP has been forced on, don't try and turn it off!");
                             break;
                         case "bloodmoon":
@@ -135,7 +162,7 @@ namespace PvPToggle
                                 if (Main.player[player.Index].hostile == false)
                                 {
                                     Main.player[player.Index].hostile = true;
-                                    NetMessage.SendData((int) PacketTypes.TogglePvp, -1, -1, "", player.Index);
+                                    NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
                                     player.TSPlayer.SendWarningMessage(
                                         "The blood moon's evil influence stops your PvP from turning off.");
                                 }
@@ -164,19 +191,19 @@ namespace PvPToggle
                 ply.TSPlayer.SendInfoMessage("Your PvP has been forced on for the blood moon!");
             }
         }
-		#endregion
+        #endregion
 
-		#region onReload
-		private static void onReload(ReloadEventArgs args)
-		{
-			SetUpConfig();
-			TShock.Log.Info("Reloaded PvPToggle config.");
-		}
-		#endregion
+        #region onReload
+        private static void onReload(ReloadEventArgs args)
+        {
+            SetUpConfig();
+            TShock.Log.Info("Reloaded PvPToggle config.");
+        }
+        #endregion
 
-		#region Config
+        #region Config
 
-		private static void SetUpConfig()
+        private static void SetUpConfig()
         {
             var configPath = Path.Combine(TShock.SavePath, "PvPtoggle.json");
             (Config = PvPConfig.Read(configPath)).Write(configPath);
@@ -202,17 +229,17 @@ namespace PvPToggle
                 args.Player.SendErrorMessage("Command blocked by server configuration");
                 return;
             }
-            
+
             if (!Main.player[args.Player.Index].hostile)
             {
                 Main.player[args.Player.Index].hostile = true;
-                NetMessage.SendData((int) PacketTypes.TogglePvp, -1, -1, "", args.Player.Index);
+                NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", args.Player.Index);
                 args.Player.SendSuccessMessage("Your PvP is now enabled.");
             }
             else if (Main.player[args.Player.Index].hostile)
             {
                 Main.player[args.Player.Index].hostile = false;
-                NetMessage.SendData((int) PacketTypes.TogglePvp, -1, -1, "", args.Player.Index);
+                NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", args.Player.Index);
                 args.Player.SendSuccessMessage("Your PvP is now disabled.");
             }
         }
@@ -289,10 +316,10 @@ namespace PvPToggle
 
             if (TeamColors.Contains(team.ToLower()))
             {
-				args.Player.TPlayer.team = TeamColors.IndexOf(team);
-				NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
-				args.Player.SendData(PacketTypes.PlayerTeam, "", args.Player.Index);
-                NetMessage.SendData((int) PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
+                args.Player.TPlayer.team = TeamColors.IndexOf(team);
+                NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
+                args.Player.SendData(PacketTypes.PlayerTeam, "", args.Player.Index);
+                NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
                 args.Player.SendSuccessMessage($"Joined the {team} team!");
             }
             else
@@ -324,10 +351,10 @@ namespace PvPToggle
             var team = args.Parameters[1];
 
             if (TeamColors.Contains(team.ToLower()))
-			{
-				foundplr[0].TPlayer.team = TeamColors.IndexOf(team);
-				NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", foundplr[0].Index);
-				foundplr[0].SendData(PacketTypes.PlayerTeam, "", foundplr[0].Index);
+            {
+                foundplr[0].TPlayer.team = TeamColors.IndexOf(team);
+                NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", foundplr[0].Index);
+                foundplr[0].SendData(PacketTypes.PlayerTeam, "", foundplr[0].Index);
                 if (!args.Silent)
                     foundplr[0].SendInfoMessage($"{args.Player.Name} changed you to the {team} team!");
                 else
@@ -387,7 +414,7 @@ namespace PvPToggle
 
             if (plStr == "*" || plStr == "all")
             {
-                PvPLock = true;
+                forcePvP = true;
                 foreach (var pl in PvPplayer)
                     pl.PvPType = "forceon";
 
@@ -435,7 +462,7 @@ namespace PvPToggle
             }
         }
     }
-        #endregion
+    #endregion
 
     #region Tools
     public class Tools
@@ -445,20 +472,20 @@ namespace PvPToggle
             return PvpToggle.PvPplayer.FirstOrDefault(player => player.Index == index);
         }
     }
-	#endregion
+    #endregion
 
-	#region Config
-	public class PvPConfig
-	{
-		public bool ForcePvPOnBloodMoon;
-		public string[] antiPvPRegions;
+    #region Config
+    public class PvPConfig
+    {
+        public bool ForcePvPOnBloodMoon;
+        public string[] antiPvPRegions;
 
-		public void Write(string path)
-		{
-			File.WriteAllText(path, JsonConvert.SerializeObject(this, Formatting.Indented));
-		}
+        public void Write(string path)
+        {
+            File.WriteAllText(path, JsonConvert.SerializeObject(this, Formatting.Indented));
+        }
 
-		public static PvPConfig Read(string path)
+        public static PvPConfig Read(string path)
         {
             if (!File.Exists(path))
                 return new PvPConfig();
