@@ -86,7 +86,7 @@ namespace PvPToggle
             Commands.ChatCommands.Add(new Command("pvp.team", ToggleTeam, "tteam"));
             Commands.ChatCommands.Add(new Command("pvp.force", ForceToggle, "forcepvp", "fpvp"));
             Commands.ChatCommands.Add(new Command("pvp.moon", BloodToggle, "bloodmoonpvp", "bmpvp"));
-            Commands.ChatCommands.Add(new Command("pvp.teamforce", LockToggle, "forceteam", "fteam"));
+            Commands.ChatCommands.Add(new Command("pvp.teamforce", ForceTeams, "forceteam", "fteam"));
 
             SetUpConfig();
         }
@@ -380,9 +380,71 @@ namespace PvPToggle
 
         #region LockToggle
 
-        private static void LockToggle(CommandArgs args)
+        private static void ForceTeams(CommandArgs args)
         {
+            if (args.Parameters.Count != 1)
+            {
+                args.Player.SendErrorMessage("Invalid syntax. Use /fteam <player name> (or /fteam *).");
+                return;
+            }
 
+            string plStr = String.Join(" ", args.Parameters);
+
+            var players = TShock.Utils.FindPlayer(plStr);
+            if (players.Count == 0 && ((plStr != "*") && (plStr != "all") && (plStr != "*off") && (plStr != "alloff")))
+            {
+                args.Player.SendErrorMessage("No players matched that name");
+                return;
+            }
+            if (players.Count > 1
+                && ((plStr != "*") && (plStr != "all") && (plStr != "*off") && (plStr != "alloff")))
+            {
+                TShock.Utils.SendMultipleMatchError(args.Player, players.Select(p => p.Name));
+                return;
+            }
+
+            if (plStr == "*" || plStr == "all")
+            {
+                forceTeam = true;
+                foreach (var pl in PvPplayer)
+                    pl.isForcedTeam = true;
+
+                if (!args.Silent)
+                    TSPlayer.All.SendInfoMessage($"{args.Player.Name} has forced everyone's Team");
+                return;
+            }
+            if (plStr == "*off" || plStr == "alloff")
+            {
+                foreach (var pl in PvPplayer)
+                    pl.isForcedTeam = false;
+
+                if (!args.Silent)
+                    TSPlayer.All.SendInfoMessage($"{args.Player.Name} has stopped forcing everyone's Team. It can now be changed.");
+            }
+
+            else
+            {
+
+                var plr = players[0];
+
+                PvPToggle.Player player = Tools.GetPlayerByIndex(players[0].Index);
+
+                if (player.isForcedTeam == false)
+                {
+                    player.isForcedTeam = true;
+                    if (!args.Silent)
+                        plr.SendInfoMessage($"{args.Player.Name} has forced your Team!");
+                    args.Player.SendSuccessMessage($"You have forced {player.PlayerName}'s Team!");
+                }
+                else if (player.isForcedTeam == true)
+                {
+                    player.isForcedTeam = false;
+                    if (!args.Silent)
+                        plr.SendInfoMessage($"{args.Player.Name} has stopped forcing your Team!");
+                    args.Player.SendInfoMessage($"You have stopped forcing {player.PlayerName}'s Team!");
+
+                }
+            }
         }
 
         #endregion
