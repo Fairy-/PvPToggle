@@ -126,6 +126,7 @@ namespace PvPToggle
         {
             Player player = new Player(args.PlayerId);
 
+            player.TSPlayer.SendInfoMessage("Your Player ID is " + args.PlayerId.ToString() + "team is " + player.TSPlayer.Team + " DB Value is: " + player.DBTeam);
             if(forceTeam)
             {
                 player.TSPlayer.SendErrorMessage("Force team is enabled, you are unable to change your team!");
@@ -219,8 +220,10 @@ namespace PvPToggle
         private static void OnLeave(LeaveEventArgs args)
         {
             Player player = new Player(args.Who);
-            pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, player.TSPlayer.Team);
+            player.TSPlayer.SendInfoMessage("Left was team" + player.TSPlayer.Team + " DB was" + player.DBTeam);
 
+            pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, player.TSPlayer.Team);
+            
             lock (PvPplayer)
                 PvPplayer.RemoveAll(plr => plr.Index == args.Who);
         }
@@ -414,6 +417,7 @@ namespace PvPToggle
                 foreach (var pl in PvPplayer)
                 {
                     pl.isForcedTeam = true;
+                    pl.DBTeam = pl.TSPlayer.Team;
                     pvpdb.InsertPlayerTeam(pl.TSPlayer.User.ID, pl.TSPlayer.Team);
                 }
 
@@ -423,6 +427,7 @@ namespace PvPToggle
             }
             if (plStr == "*off" || plStr == "alloff")
             {
+                forceTeam = false;
                 foreach (var pl in PvPplayer)
                     pl.isForcedTeam = false;
 
@@ -440,6 +445,7 @@ namespace PvPToggle
                 if (player.isForcedTeam == false)
                 {
                     player.isForcedTeam = true;
+                    player.DBTeam = player.TSPlayer.Team;
                     pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, player.TSPlayer.Team);
                     if (!args.Silent)
                         plr.SendInfoMessage($"{args.Player.Name} has forced your Team!");
