@@ -124,9 +124,14 @@ namespace PvPToggle
         #region onPlayerTeamChange
         private void onPlayerTeamChange(object sender, GetDataHandlers.PlayerTeamEventArgs args)
         {
-            var player = TShock.Players[args.PlayerId];
-            
-            player.SendInfoMessage("TEAM CHANGED: " + args.Team);
+            Player player = new Player(args.PlayerId);
+
+            if(forceTeam)
+            {
+                player.TSPlayer.SendErrorMessage("Force team is enabled, you are unable to change your team!");
+                player.TSPlayer.SetTeam(player.DBTeam);
+                args.Handled = true;
+            }
         }
 
         #endregion
@@ -407,7 +412,10 @@ namespace PvPToggle
             {
                 forceTeam = true;
                 foreach (var pl in PvPplayer)
+                {
                     pl.isForcedTeam = true;
+                    pvpdb.InsertPlayerTeam(pl.TSPlayer.User.ID, pl.TSPlayer.Team);
+                }
 
                 if (!args.Silent)
                     TSPlayer.All.SendInfoMessage($"{args.Player.Name} has forced everyone's Team");
@@ -432,6 +440,7 @@ namespace PvPToggle
                 if (player.isForcedTeam == false)
                 {
                     player.isForcedTeam = true;
+                    pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, player.TSPlayer.Team);
                     if (!args.Silent)
                         plr.SendInfoMessage($"{args.Player.Name} has forced your Team!");
                     args.Player.SendSuccessMessage($"You have forced {player.PlayerName}'s Team!");
