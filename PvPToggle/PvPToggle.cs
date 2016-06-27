@@ -124,14 +124,17 @@ namespace PvPToggle
         #region onPlayerTeamChange
         private void onPlayerTeamChange(object sender, GetDataHandlers.PlayerTeamEventArgs args)
         {
-            Player player = new Player(args.PlayerId);
-
-            player.TSPlayer.SendInfoMessage("Your Player ID is " + args.PlayerId.ToString() + "team is " + player.TSPlayer.Team + " DB Value is: " + player.DBTeam);
-            if(forceTeam)
+            lock(PvPplayer)
             {
-                player.TSPlayer.SendErrorMessage("Force team is enabled, you are unable to change your team!");
-                player.TSPlayer.SetTeam(player.DBTeam);
-                args.Handled = true;
+                Player player = PvPplayer.Find(p => p.Index == args.PlayerId);
+
+                player.TSPlayer.SendInfoMessage("Your Player ID is " + args.PlayerId.ToString() + "team is " + player.TSPlayer.Team + " DB Value is: " + player.DBTeam);
+                if (forceTeam)
+                {
+                    player.TSPlayer.SendErrorMessage("Force team is enabled, you are unable to change your team!");
+                    player.TSPlayer.SetTeam(player.DBTeam);
+                    args.Handled = true;
+                }
             }
         }
 
@@ -219,6 +222,8 @@ namespace PvPToggle
 
         private static void OnLeave(LeaveEventArgs args)
         {
+            //Don't 
+
             Player player = new Player(args.Who);
             player.TSPlayer.SendInfoMessage("Left was team" + player.TSPlayer.Team + " DB was" + player.DBTeam);
 
@@ -444,6 +449,7 @@ namespace PvPToggle
 
                 if (player.isForcedTeam == false)
                 {
+                    //Maybe needs work?
                     player.isForcedTeam = true;
                     player.DBTeam = player.TSPlayer.Team;
                     pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, player.TSPlayer.Team);
