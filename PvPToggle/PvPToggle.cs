@@ -68,6 +68,7 @@ namespace PvPToggle
                 ServerApi.Hooks.GameInitialize.Deregister(this, OnInitialize);
                 ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
                 GeneralHooks.ReloadEvent -= onReload;
+                GetDataHandlers.PlayerTeam -= onPlayerTeamChange;
             }
             base.Dispose(disposing);
         }
@@ -106,6 +107,7 @@ namespace PvPToggle
             {
                 player.TSPlayer.SendInfoMessage("Force team is enabled, your team has been set to " + TeamColors[player.DBTeam]);
                 player.TSPlayer.SetTeam(player.DBTeam);
+                player.TSPlayer.SendData(PacketTypes.PlayerTeam, "", player.Index);
                 player.isForcedTeam = true;
             }
 
@@ -113,7 +115,8 @@ namespace PvPToggle
             {
                 player.TSPlayer.SendInfoMessage("Force PvP is enabled, your PvP status has been set to on");
                 player.PvPType = "forceon";
-                NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
+                Main.player[player.Index].hostile = true;
+                player.TSPlayer.SendData(PacketTypes.TogglePvp, "", player.Index);
             }
 
             lock (PvPplayer)
@@ -127,8 +130,6 @@ namespace PvPToggle
             lock(PvPplayer)
             {
                 Player player = PvPplayer.Find(p => p.Index == args.PlayerId);
-
-                player.TSPlayer.SendInfoMessage("Your Player ID is " + args.PlayerId.ToString() + "team is " + player.TSPlayer.Team + " DB Value is: " + player.DBTeam);
                 if (forceTeam)
                 {
                     player.TSPlayer.SendErrorMessage("Force team is enabled, you are unable to change your team!");
@@ -222,10 +223,7 @@ namespace PvPToggle
 
         private static void OnLeave(LeaveEventArgs args)
         {
-            //Don't 
-
             Player player = new Player(args.Who);
-            player.TSPlayer.SendInfoMessage("Left was team" + player.TSPlayer.Team + " DB was" + player.DBTeam);
 
             pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, player.TSPlayer.Team);
             
@@ -330,8 +328,6 @@ namespace PvPToggle
             if (TeamColors.Contains(team.ToLower()))
             {
                 args.Player.TPlayer.team = TeamColors.IndexOf(team);
-                NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
-                args.Player.SendData(PacketTypes.PlayerTeam, "", args.Player.Index);
                 NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
                 args.Player.SendSuccessMessage($"Joined the {team} team!");
             }

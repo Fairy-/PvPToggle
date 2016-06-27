@@ -25,7 +25,6 @@ namespace PvPToggle
 
         public PvPPlayerData GetPlayerTeam(int accountid)
         {
-            TShock.Log.Error("Getting DB Information for Account: " + accountid.ToString());
             PvPPlayerData pvpplayer =  new PvPPlayerData();
             try
             {
@@ -35,7 +34,6 @@ namespace PvPToggle
                     {
                         pvpplayer.exists = true;
                         pvpplayer.teamid = reader.Get<int>("Team");
-                        TShock.Log.Error("Getting Account: " + accountid.ToString() + "  Read from DB Team: " + pvpplayer.teamid.ToString());
                         return pvpplayer;
                     }
                 }
@@ -55,7 +53,6 @@ namespace PvPToggle
             {
                 try
                 {
-                    TShock.Log.Error("Inserting Account: " + accountid.ToString() + " Team: " + teamid.ToString());
                     database.Query(
                         "INSERT INTO tsPvP (Account, Team) VALUES (@0, @1);",
                         accountid, teamid);
@@ -70,7 +67,6 @@ namespace PvPToggle
             {
                 try
                 {
-                    TShock.Log.Error("Updating Account: " + accountid.ToString() + " Team: " + teamid.ToString());
                     database.Query(
                         "UPDATE tsPvP SET Team = @0 WHERE Account = @1;",
                         teamid, accountid);
