@@ -90,6 +90,9 @@ namespace PvPToggle
             Commands.ChatCommands.Add(new Command("pvp.teamforce", ForceTeams, "forceteam", "fteam"));
 
             SetUpConfig();
+
+            forcePvP = Config.autoForcePvP;
+            forceTeam = Config.autoForceTeams;
         }
 
         private static void OnGreetPlayer(GreetPlayerEventArgs args)
@@ -103,7 +106,7 @@ namespace PvPToggle
 
             player.DBTeam = pvpdb.GetPlayerTeam(player.TSPlayer.User.ID).teamid;
 
-            if(forceTeam)
+            if (forceTeam)
             {
                 player.TSPlayer.SendInfoMessage("Force team is enabled, your team has been set to " + TeamColors[player.DBTeam]);
                 player.TSPlayer.SetTeam(player.DBTeam);
@@ -111,7 +114,7 @@ namespace PvPToggle
                 player.isForcedTeam = true;
             }
 
-            if(forcePvP)
+            if (forcePvP)
             {
                 player.TSPlayer.SendInfoMessage("Force PvP is enabled, your PvP status has been set to on");
                 player.PvPType = "forceon";
@@ -127,9 +130,10 @@ namespace PvPToggle
         #region onPlayerTeamChange
         private void onPlayerTeamChange(object sender, GetDataHandlers.PlayerTeamEventArgs args)
         {
-            lock(PvPplayer)
+            lock (PvPplayer)
             {
                 Player player = PvPplayer.Find(p => p.Index == args.PlayerId);
+                TSPlayer.All.SendInfoMessage("change " + args.PlayerId);
                 if (forceTeam)
                 {
                     player.TSPlayer.SendErrorMessage("Force team is enabled, you are unable to change your team!");
@@ -226,7 +230,7 @@ namespace PvPToggle
             Player player = new Player(args.Who);
 
             pvpdb.InsertPlayerTeam(player.TSPlayer.User.ID, player.TSPlayer.Team);
-            
+
             lock (PvPplayer)
                 PvPplayer.RemoveAll(plr => plr.Index == args.Who);
         }
@@ -317,22 +321,37 @@ namespace PvPToggle
 
         private static void TeamSwitch(CommandArgs args)
         {
-            if (args.Parameters.Count != 1)
+            if (args.Player.HasPermission("pvp.teamswitch.bypass"))
             {
-                args.Player.SendErrorMessage("Invalid syntax! Proper syntax: /team [team color]");
-                return;
-            }
+                if (args.Parameters.Count != 1)
+                {
+                    args.Player.SendErrorMessage("Invalid syntax! Proper syntax: /team [team color]");
+                    return;
+                }
 
-            var team = args.Parameters[0];
+                var team = args.Parameters[0];
 
-            if (TeamColors.Contains(team.ToLower()))
-            {
-                args.Player.TPlayer.team = TeamColors.IndexOf(team);
-                NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
-                args.Player.SendSuccessMessage($"Joined the {team} team!");
+                if (TeamColors.Contains(team.ToLower()))
+                {
+
+                    args.Player.TPlayer.team = TeamColors.IndexOf(team);
+                    NetMessage.SendData((int)PacketTypes.PlayerTeam, -1, -1, "", args.Player.Index);
+                    args.Player.SendSuccessMessage($"Joined the {team} team!");
+
+                    lock (PvPplayer)
+                    {
+                        Player pl = PvPplayer.Find(p => p.Index == args.Player.Index);
+                        pl.DBTeam = args.Player.Team;
+                        pvpdb.InsertPlayerTeam(pl.TSPlayer.User.ID, pl.DBTeam);
+                    }
+                }
+                else
+                    args.Player.SendErrorMessage("Invalid team color!");
             }
             else
-                args.Player.SendErrorMessage("Invalid team color!");
+            {
+                args.Player.SendErrorMessage("You don't have the permission to change your team!");
+            }
         }
         #endregion
 
@@ -369,6 +388,14 @@ namespace PvPToggle
                 else
                     foundplr[0].SendInfoMessage($"You are now on the {team} team!");
                 args.Player.SendSuccessMessage($"Changed {foundplr[0].Name} to the {team} team!");
+
+                lock (PvPplayer)
+                {
+                    Player pl = PvPplayer.Find(p => p.Index == foundplr[0].Index);
+                    pl.DBTeam = foundplr[0].Team;
+                    pvpdb.InsertPlayerTeam(pl.TSPlayer.User.ID, pl.DBTeam);
+                }
+
             }
             else
                 args.Player.SendErrorMessage("Invalid team color!");
@@ -558,6 +585,8 @@ namespace PvPToggle
     {
         public bool ForcePvPOnBloodMoon;
         public string[] antiPvPRegions;
+        public bool autoForceTeams;
+        public bool autoForcePvP;
 
         public void Write(string path)
         {
