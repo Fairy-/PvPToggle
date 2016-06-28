@@ -19,6 +19,7 @@ namespace PvPToggle
     public class PvpToggle : TerrariaPlugin
     {
         public static readonly List<Player> PvPplayer = new List<Player>();
+        public static readonly List<Player> GemPlayer = new List<Player>();
         private static readonly List<string> TeamColors = new List<string> { "white", "red", "green", "blue", "yellow", "purple" };
         private static PvPConfig Config { get; set; }
 
@@ -27,6 +28,8 @@ namespace PvPToggle
         private static bool forcePvP = false;
 
         private static bool forceTeam = false;
+
+        private static bool forceGem = false;
 
         public override Version Version
         {
@@ -154,7 +157,32 @@ namespace PvPToggle
                 foreach (var player in PvPplayer)
                 {
                     var plr = TShock.Players[player.Index];
-                    if (plr.CurrentRegion != null && Config.antiPvPRegions.ToList().Contains(plr.CurrentRegion.Name) && Main.player[player.Index].hostile)
+                    string gemString = player.GemCheck();
+                    bool hasGem = player.hasGems();
+                    lock (GemPlayer)
+                    {
+                        if (hasGem && GemPlayer.IndexOf(player) == -1)
+                        {
+                            GemPlayer.Add(player);
+                        }
+                        else
+                        {
+                            GemPlayer.Remove(player);
+                        }
+                    }
+
+                    if (gemString != "" && Config.announceGemPickup)
+                    {
+                        TSPlayer.All.SendInfoMessage(gemString);
+                    }
+
+                    if (!Main.player[player.Index].hostile && hasGem)
+                    {
+                        player.PvPType = "forcegem";
+                        player.TSPlayer.SendWarningMessage("You have a Large Gem in your Inventory! Your PvP has been forced on!");
+                    }
+
+                    if (GemPlayer.Count == 0 && plr.CurrentRegion != null && Config.antiPvPRegions.ToList().Contains(plr.CurrentRegion.Name) && Main.player[player.Index].hostile)
                     {
                         Main.player[player.Index].hostile = false;
                         plr.SendWarningMessage("You are in a no-PvP zone.");
@@ -164,12 +192,18 @@ namespace PvPToggle
 
                     switch (player.PvPType)
                     {
+                        case "forcegem":
+                            if (!hasGem)
+                            {
+                                player.PvPType = forcePvP ? "forceon" : "";
+                            }
+                            goto case "forceon";
                         case "forceon":
                             if (Main.player[player.Index].hostile) continue;
                             Main.player[player.Index].hostile = true;
                             NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
                             player.TSPlayer.SendWarningMessage("Your PvP has been forced on, don't try and turn it off!");
-                            break;
+                            continue;
                         case "bloodmoon":
                             if (Main.bloodMoon && !Main.dayTime)
                             {
@@ -577,6 +611,7 @@ namespace PvPToggle
         {
             return PvpToggle.PvPplayer.FirstOrDefault(player => player.Index == index);
         }
+
     }
     #endregion
 
@@ -584,9 +619,10 @@ namespace PvPToggle
     public class PvPConfig
     {
         public bool ForcePvPOnBloodMoon;
-        public string[] antiPvPRegions;
+        public string[] antiPvPRegions = new string[] { };
         public bool autoForceTeams;
         public bool autoForcePvP;
+        public bool announceGemPickup;
 
         public void Write(string path)
         {
