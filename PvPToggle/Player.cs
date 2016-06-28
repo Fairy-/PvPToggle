@@ -36,12 +36,17 @@ namespace PvPToggle
             string pickupstring = "";
             string returnstring = "";
             Dictionary<int, int> newGemsCarried = new Dictionary<int, int>();
+            Array values = Enum.GetValues(typeof(largeGem));
+            foreach (largeGem item in values)
+            {
+                newGemsCarried[(int)item] = 0;
+            }
             IEnumerable<Item> filteredGems = this.TSPlayer.TPlayer.inventory.Where(item => (item.netID >= 1522 && item.netID <= 1527) || item.netID == 3643);
             foreach (Item item in filteredGems)
             {
                 newGemsCarried[item.netID]++;
             }
-            Array values = Enum.GetValues(typeof(largeGem));
+
             foreach (largeGem item in values)
             {
                 int change = newGemsCarried[(int)item] - gemsCarried[(int)item];
