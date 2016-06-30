@@ -22,7 +22,7 @@ namespace PvPToggle
         public static readonly List<Player> GemPlayer = new List<Player>();
         private static readonly List<string> TeamColors = new List<string> { "white", "red", "green", "blue", "yellow", "purple" };
         private static PvPConfig Config { get; set; }
-
+        private static Array GemValues = Enum.GetValues(typeof(Player.largeGem));
         private static PvPManager pvpdb { get; set; }
 
         private static bool forcePvP = false;
@@ -77,6 +77,9 @@ namespace PvPToggle
                 ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
                 GeneralHooks.ReloadEvent -= onReload;
                 GetDataHandlers.PlayerTeam -= onPlayerTeamChange;
+                GetDataHandlers.PlayerSlot -= onInventoryChange;
+                GetDataHandlers.TogglePvp -= onTogglePvP;
+                GetDataHandlers.ChestItemChange -= onChestItemChange;
             }
             base.Dispose(disposing);
         }
@@ -229,6 +232,9 @@ namespace PvPToggle
 
         private static void OnUpdate(EventArgs e)
         {
+            string droppedstring = "";
+            string returnstring = "";
+            string pickupstring = "";
             countTicks++;
             if (countTicks < 30)
             {
@@ -249,7 +255,6 @@ namespace PvPToggle
                     if (Config.EnableGemMechanics)
                     {
                         bool hasGem = plr.hasGems();
-
                         lock (GemPlayer)
                         {
                             if (hasGem && GemPlayer.IndexOf(plr) == -1)
@@ -260,8 +265,43 @@ namespace PvPToggle
                             {
                                 GemPlayer.Remove(plr);
                             }
-
                         }
+
+                        foreach (Player.largeGem item in GemValues)
+                        {
+                            int change = plr.gemsCarried.Count(i => i.Value == (int)item) - plr.previousGemsCarried.Count(i => i.Value == (int)item);
+                            if (change > 0)
+                            {
+                                pickupstring += change + " " + Enum.GetName(typeof(Player.largeGem), item) + " ";
+                            }
+                            else if (change < 0)
+                            {
+                                droppedstring += change * -1 + " " + Enum.GetName(typeof(Player.largeGem), item) + " ";
+                            }
+                        }
+
+                        if (pickupstring != "")
+                        {
+                            returnstring += plr.TSPlayer.Name + " has picked up " + pickupstring.Trim();
+                        }
+
+                        if (droppedstring != "")
+                        {
+                            if (returnstring == "")
+                            {
+                                returnstring += plr.TSPlayer.Name + " has dropped " + droppedstring.Trim();
+                            }
+                            else
+                            {
+                                returnstring += " and dropped " + droppedstring.Trim();
+                            }
+                        }
+                        plr.previousGemsCarried = plr.gemsCarried;
+                        if (returnstring != "" && Config.announceGemPickup)
+                        {
+                            TSPlayer.All.SendInfoMessage(returnstring);
+                        }
+
 
                         if (!hasGem && (plr.PvPType.HasFlag(Player.PlayerPvPType.ForceGem)))
                         {
