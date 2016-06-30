@@ -21,7 +21,16 @@ namespace PvPToggle
             Amber = 3643
         }
 
-        public string PvPType = "";
+        [Flags]
+        public enum PlayerPvPType
+        {
+            None = 0,
+            ForceOn = 1,
+            ForceGem = 2,
+            ForceBloodmoon = 4
+        }
+
+        public PlayerPvPType PvPType;
         public int Index;
         public int DBTeam = 0;
         public bool isForcedTeam = false;

@@ -59,6 +59,9 @@ namespace PvPToggle
             ServerApi.Hooks.ServerLeave.Register(this, OnLeave);
             GeneralHooks.ReloadEvent += onReload;
             GetDataHandlers.PlayerTeam += onPlayerTeamChange;
+            GetDataHandlers.PlayerSlot += onInventoryChange;
+            GetDataHandlers.TogglePvp += onTogglePvP;
+            GetDataHandlers.ItemDrop += onItemDrop;
             pvpdb = new PvPManager(TShock.DB);
             Config = new PvPConfig();
 
@@ -122,7 +125,7 @@ namespace PvPToggle
             if (forcePvP)
             {
                 player.TSPlayer.SendInfoMessage("Force PvP is enabled, your PvP status has been set to on");
-                player.PvPType = "forceon";
+                player.PvPType = Player.PlayerPvPType.ForceOn;
                 Main.player[player.Index].hostile = true;
                 player.TSPlayer.SendData(PacketTypes.TogglePvp, "", player.Index);
             }
@@ -149,102 +152,127 @@ namespace PvPToggle
 
         #endregion
 
+        #region OnTogglePvp
+        private static void onTogglePvP(object sender, GetDataHandlers.TogglePvpEventArgs args)
+        {
+            if (!args.Pvp)
+            {
+                lock (PvPplayer)
+                {
+                    var plr = PvPplayer.Find(p => p.Index == args.PlayerId);
+
+                    if (plr.PvPType.HasFlag(Player.PlayerPvPType.ForceOn)) //is forceon?
+                    {
+                        Main.player[plr.Index].hostile = true;
+                        plr.TSPlayer.SendData(PacketTypes.TogglePvp, "", plr.Index);
+                        plr.TSPlayer.SendWarningMessage("Your PvP has been forced on, don't try and turn it off!");
+                        args.Handled = true;
+                    }
+                    else if (plr.PvPType.HasFlag(Player.PlayerPvPType.ForceGem)) //is forcegem?
+                    {
+                        Main.player[plr.Index].hostile = true;
+                        plr.TSPlayer.SendData(PacketTypes.TogglePvp, "", plr.Index);
+                        plr.TSPlayer.SendWarningMessage("The Large Gem's evil influence stops your PvP from turning off.");
+                        args.Handled = true;
+                    }
+                    else if (plr.PvPType.HasFlag(Player.PlayerPvPType.ForceBloodmoon)) //is bloodmoon?
+                    {
+                        Main.player[plr.Index].hostile = true;
+                        plr.TSPlayer.SendData(PacketTypes.TogglePvp, "", plr.Index);
+                        plr.TSPlayer.SendWarningMessage("The Blood Moon's evil influence stops your PvP from turning off.");
+                        args.Handled = true;
+                    }
+                }
+            }
+        }
+        #endregion
+
+        #region OnInventoryChange
+        private static void onInventoryChange(object sender, GetDataHandlers.PlayerSlotEventArgs args)
+        {
+
+        }
+        #endregion
+
+        private static void onItemDrop(object sender, GetDataHandlers.ItemDropEventArgs args)
+        {
+        }
+
+
         #region OnUpdate
 
         private static void OnUpdate(EventArgs e)
         {
             countTicks++;
-            if (countTicks > 30)
+            if (countTicks < 30)
             {
-                lock (PvPplayer)
+                return;
+
+            }
+            countTicks = 0;
+            lock (PvPplayer)
+            {
+                foreach (var plr in PvPplayer)
                 {
-                    foreach (var player in PvPplayer)
+                    if (Config.ForcePvPOnBloodMoon && (Main.dayTime || !Main.bloodMoon) && plr.PvPType.HasFlag(Player.PlayerPvPType.ForceBloodmoon)) {
+                        plr.PvPType ^= Player.PlayerPvPType.ForceBloodmoon;
+                        plr.TSPlayer.SendInfoMessage("The Blood Moon's influence fades!");
+                    }
+
+                    if (Config.EnableGemMechanics)
                     {
-                        var plr = TShock.Players[player.Index];
-                        string gemString = player.GemCheck();
-                        bool hasGem = player.hasGems();
+                        bool hasGem = plr.hasGems();
+
                         lock (GemPlayer)
                         {
-                            if (hasGem && GemPlayer.IndexOf(player) == -1)
+                            if (hasGem && GemPlayer.IndexOf(plr) == -1)
                             {
-                                GemPlayer.Add(player);
+                                GemPlayer.Add(plr);
                             }
-                            else if(!hasGem && GemPlayer.IndexOf(player)> -1)
+                            else if (!hasGem && GemPlayer.IndexOf(plr) > -1)
                             {
-                                GemPlayer.Remove(player);
+                                GemPlayer.Remove(plr);
                             }
                         }
 
-                        if (gemString != "" && Config.announceGemPickup)
-                        {
-                            TSPlayer.All.SendInfoMessage(gemString);
-                        }
-
-                        if (!Main.player[player.Index].hostile && hasGem)
-                        {
-                            player.PvPType = "forcegem";
-                            Main.player[player.Index].hostile = true;
-                            player.TSPlayer.SendData(PacketTypes.TogglePvp, "", player.Index);
-                            player.TSPlayer.SendWarningMessage("You have a Large Gem in your Inventory! Your PvP has been forced on!");
-                        }
-
-                        if (GemPlayer.Count == 0 && plr.CurrentRegion != null && Config.antiPvPRegions.ToList().Contains(plr.CurrentRegion.Name) && Main.player[player.Index].hostile)
-                        {
-                            Main.player[player.Index].hostile = false;
-                            plr.SendWarningMessage("You are in a no-PvP zone.");
-                            NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
-                            continue;
-                        }
-
-                        switch (player.PvPType)
-                        {
-                            case "forcegem":
-                                if (!hasGem)
-                                {
-                                    player.PvPType = forcePvP ? "forceon" : "";
-                                }
-                                goto case "forceon";
-                            case "forceon":
-                                if (Main.player[player.Index].hostile) continue;
-                                Main.player[player.Index].hostile = true;
-                                NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
-                                player.TSPlayer.SendWarningMessage("Your PvP has been forced on, don't try and turn it off!");
-                                continue;
-                            case "bloodmoon":
-                                if (Main.bloodMoon && !Main.dayTime)
-                                {
-                                    if (Main.player[player.Index].hostile == false)
-                                    {
-                                        Main.player[player.Index].hostile = true;
-                                        NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", player.Index);
-                                        player.TSPlayer.SendWarningMessage(
-                                            "The blood moon's evil influence stops your PvP from turning off.");
-                                    }
-                                }
-                                else
-                                {
-                                    player.PvPType = "";
-                                    player.TSPlayer.SendInfoMessage(
-                                        "The blood moon fades, and you have control over your PvP again!");
-                                }
-                                break;
+                        if (!hasGem && (plr.PvPType.HasFlag(Player.PlayerPvPType.ForceGem))) {
+                            plr.PvPType ^= Player.PlayerPvPType.ForceGem;
+                            plr.TSPlayer.SendInfoMessage("The Gem's influence fades!");
+                        } else if (hasGem && (!plr.PvPType.HasFlag(Player.PlayerPvPType.ForceGem))) {
+                            plr.PvPType |= Player.PlayerPvPType.ForceGem;
+                            if (!Main.player[plr.Index].hostile)
+                            {
+                                Main.player[plr.Index].hostile = true;
+                                plr.TSPlayer.SendData(PacketTypes.TogglePvp, "", plr.Index);
+                                plr.TSPlayer.SendWarningMessage("The Large Gem in your inventory forced your PvP on!");
+                            }
                         }
                     }
-                }
-                countTicks = 0;
-            }
 
-            if (!Main.bloodMoon || !Config.ForcePvPOnBloodMoon) return;
+                    bool safeZone = GemPlayer.Count == 0 && plr.TSPlayer.CurrentRegion != null && Config.antiPvPRegions.ToList().Contains(plr.TSPlayer.CurrentRegion.Name);
 
-            foreach (var ply in PvPplayer.Where(ply => ply.PvPType != "bloodmoon"))
-            {
-                ply.PvPType = "bloodmoon";
-                if (Main.player[ply.Index].hostile == false)
-                {
-                    Main.player[ply.Index].hostile = true;
-                    NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", ply.Index);
+                    if (safeZone)
+                    {
+                        if (Main.player[plr.Index].hostile)
+                        {
+                            Main.player[plr.Index].hostile = false;
+                            plr.TSPlayer.SendWarningMessage("PvP is disabled in this zone.");
+                            plr.TSPlayer.SendData(PacketTypes.TogglePvp, "", plr.Index);
+                        }
+                    }
+                    else if (Config.ForcePvPOnBloodMoon && Main.bloodMoon && !Main.dayTime && (!plr.PvPType.HasFlag(Player.PlayerPvPType.ForceBloodmoon))) {
+                        plr.PvPType += 4;
+                        Main.player[plr.Index].hostile = true;
+                        plr.TSPlayer.SendData(PacketTypes.TogglePvp, "", plr.Index);
+                        plr.TSPlayer.SendInfoMessage("The Blood Moon's evil influence forced your PvP on!");
+                    } else if (!Main.player[plr.Index].hostile && (!plr.PvPType.Equals(Player.PlayerPvPType.None)))
+                    {
+                        Main.player[plr.Index].hostile = true;
+                        plr.TSPlayer.SendData(PacketTypes.TogglePvp, "", plr.Index);
+                        plr.TSPlayer.SendInfoMessage("Your PvP turned back on!");
+                    }
+
                 }
-                ply.TSPlayer.SendInfoMessage("Your PvP has been forced on for the blood moon!");
             }
         }
         #endregion
@@ -567,7 +595,11 @@ namespace PvPToggle
             {
                 forcePvP = true;
                 foreach (var pl in PvPplayer)
-                    pl.PvPType = "forceon";
+                {
+                    Main.player[pl.Index].hostile = true;
+                    pl.TSPlayer.SendData(PacketTypes.TogglePvp, "", pl.Index);
+                    pl.PvPType |= Player.PlayerPvPType.ForceOn;
+                }
 
                 if (!args.Silent)
                     TSPlayer.All.SendInfoMessage($"{args.Player.Name} has forced on everyone's PvP");
@@ -576,7 +608,7 @@ namespace PvPToggle
             if (plStr == "*off" || plStr == "alloff")
             {
                 foreach (var pl in PvPplayer)
-                    pl.PvPType = "";
+                    pl.PvPType ^= Player.PlayerPvPType.ForceOn;
 
                 if (!args.Silent)
                     TSPlayer.All.SendInfoMessage($"{args.Player.Name} has stopped forcing everyone's PvP on. It can now be turned off.");
@@ -589,9 +621,9 @@ namespace PvPToggle
 
                 PvPToggle.Player player = Tools.GetPlayerByIndex(players[0].Index);
 
-                if (player.PvPType == "")
+                if (player.PvPType.Equals(Player.PlayerPvPType.None))
                 {
-                    player.PvPType = "forceon";
+                    player.PvPType |= Player.PlayerPvPType.ForceOn;
                     Main.player[plr.Index].hostile = true;
                     NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", plr.Index, 0f, 0f, 0f);
                     if (!args.Silent)
@@ -600,9 +632,9 @@ namespace PvPToggle
                 }
 
 
-                else if (player.PvPType == "forceon")
+                else if (player.PvPType.HasFlag(Player.PlayerPvPType.ForceOn))
                 {
-                    player.PvPType = "";
+                    player.PvPType ^= Player.PlayerPvPType.ForceOn;
                     Main.player[plr.Index].hostile = false;
                     NetMessage.SendData((int)PacketTypes.TogglePvp, -1, -1, "", plr.Index, 0f, 0f, 0f);
                     if (!args.Silent)
@@ -629,6 +661,7 @@ namespace PvPToggle
     #region Config
     public class PvPConfig
     {
+        public bool EnableGemMechanics;
         public bool ForcePvPOnBloodMoon;
         public string[] antiPvPRegions = new string[] { };
         public bool autoForceTeams;
