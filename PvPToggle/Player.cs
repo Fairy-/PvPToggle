@@ -34,6 +34,7 @@ namespace PvPToggle
         public int Index;
         public int DBTeam = 0;
         public bool isForcedTeam = false;
+        public Dictionary<int, int> previousGemsCarried = new Dictionary<int, int>();
         public Dictionary<int, int> gemsCarried = new Dictionary<int, int>();
 
         public TSPlayer TSPlayer { get { return TShock.Players[Index]; } }
@@ -91,23 +92,12 @@ namespace PvPToggle
 
         public bool hasGems()
         {
-            int i = 0;
-            Array values = Enum.GetValues(typeof(largeGem));
-            foreach (largeGem item in values)
-            {
-                i += gemsCarried[(int)item];
-            }
-            return i > 0;
+           return gemsCarried.Count != 0;
         }
 
         public Player(int index)
         {
             Index = index;
-            Array values = Enum.GetValues(typeof(largeGem));
-            foreach (largeGem item in values)
-            {
-                gemsCarried[(int)item] = 0;
-            }
         }
     }
 }
