@@ -74,12 +74,12 @@ namespace PvPToggle
                 ServerApi.Hooks.GameUpdate.Deregister(this, OnUpdate);
                 ServerApi.Hooks.NetGreetPlayer.Deregister(this, OnGreetPlayer);
                 ServerApi.Hooks.GameInitialize.Deregister(this, OnInitialize);
-                ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
                 GeneralHooks.ReloadEvent -= onReload;
                 GetDataHandlers.PlayerTeam -= onPlayerTeamChange;
                 GetDataHandlers.PlayerSlot -= onInventoryChange;
                 GetDataHandlers.TogglePvp -= onTogglePvP;
                 GetDataHandlers.ChestItemChange -= onChestItemChange;
+                ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
             }
             base.Dispose(disposing);
         }
@@ -202,9 +202,9 @@ namespace PvPToggle
         private static void onInventoryChange(object sender, GetDataHandlers.PlayerSlotEventArgs args)
         {
             var plr = PvPplayer.Find(p => p.Index == args.PlayerId);
-            if ((args.Type > 1522 && args.Type < 1527) || args.Type == 3643)
+            if ((args.Type >= 1522 && args.Type <= 1527) || args.Type == 3643)
             {
-                if (args.Slot >= 0 && args.Slot <= 49 && args.Slot == 58)
+                if ((args.Slot >= 0 && args.Slot <= 49) || args.Slot == 58 || (args.Slot >= 99 && args.Slot <= 178))
                 {
                     plr.gemsCarried[args.Slot] = args.Type;
                 }
@@ -217,7 +217,7 @@ namespace PvPToggle
             }
             else if (args.Type == 0)
             {
-                if (args.Slot >= 0 && args.Slot <= 49 && args.Slot == 58)
+                if ((args.Slot >= 0 && args.Slot <= 49) || args.Slot == 58 || (args.Slot >= 99 && args.Slot <= 178))
                 {
                     if (plr.gemsCarried.ContainsKey(args.Slot))
                     {
@@ -246,6 +246,7 @@ namespace PvPToggle
             {
                 foreach (var plr in PvPplayer)
                 {
+                    
                     if (Config.ForcePvPOnBloodMoon && (Main.dayTime || !Main.bloodMoon) && plr.PvPType.HasFlag(Player.PlayerPvPType.ForceBloodmoon))
                     {
                         plr.PvPType ^= Player.PlayerPvPType.ForceBloodmoon;
@@ -254,6 +255,9 @@ namespace PvPToggle
 
                     if (Config.EnableGemMechanics)
                     {
+                        returnstring = "";
+                        droppedstring = "";
+                        pickupstring = "";
                         bool hasGem = plr.hasGems();
                         lock (GemPlayer)
                         {
@@ -269,7 +273,7 @@ namespace PvPToggle
 
                         foreach (Player.largeGem item in GemValues)
                         {
-                            int change = plr.gemsCarried.Count(i => i.Value == (int)item) - plr.previousGemsCarried.Count(i => i.Value == (int)item);
+                            int change = plr.gemsCarried.Values.Count(p => p == (int)item) - plr.previousGemsCarried.Values.Count(p => p == (int)item);
                             if (change > 0)
                             {
                                 pickupstring += change + " " + Enum.GetName(typeof(Player.largeGem), item) + " ";
@@ -296,7 +300,7 @@ namespace PvPToggle
                                 returnstring += " and dropped " + droppedstring.Trim();
                             }
                         }
-                        plr.previousGemsCarried = plr.gemsCarried;
+                        plr.previousGemsCarried = new Dictionary<int, int>(plr.gemsCarried);
                         if (returnstring != "" && Config.announceGemPickup)
                         {
                             TSPlayer.All.SendInfoMessage(returnstring);

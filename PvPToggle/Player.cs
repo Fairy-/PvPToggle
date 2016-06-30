@@ -40,56 +40,6 @@ namespace PvPToggle
         public TSPlayer TSPlayer { get { return TShock.Players[Index]; } }
         public string PlayerName { get { return Main.player[Index].name; } }
 
-        public string GemCheck()
-        {
-            string droppedstring = "";
-            string pickupstring = "";
-            string returnstring = "";
-            Dictionary<int, int> newGemsCarried = new Dictionary<int, int>();
-            Array values = Enum.GetValues(typeof(largeGem));
-            foreach (largeGem item in values)
-            {
-                newGemsCarried[(int)item] = 0;
-            }
-            IEnumerable<Item> filteredGems = this.TSPlayer.TPlayer.inventory.Where(item => (item.netID >= 1522 && item.netID <= 1527) || item.netID == 3643);
-            foreach (Item item in filteredGems)
-            {
-                newGemsCarried[item.netID]++;
-            }
-
-            foreach (largeGem item in values)
-            {
-                int change = newGemsCarried[(int)item] - gemsCarried[(int)item];
-                if (change > 0)
-                {
-                    pickupstring += change + " " + Enum.GetName(typeof(largeGem), item) + " ";
-                }
-                else if (change < 0)
-                {
-                    droppedstring += change * -1 + " " + Enum.GetName(typeof(largeGem), item) + " ";
-                }
-            }
-
-            if (pickupstring != "")
-            {
-                returnstring += TSPlayer.Name + " has picked up " + pickupstring.Trim();
-            }
-
-            if (droppedstring != "")
-            {
-                if (returnstring == "")
-                {
-                    returnstring += TSPlayer.Name + " has dropped " + droppedstring.Trim();
-                }
-                else
-                {
-                    returnstring += " and dropped " + droppedstring.Trim();
-                }
-            }
-            gemsCarried = newGemsCarried;
-            return returnstring;
-        }
-
         public bool hasGems()
         {
            return gemsCarried.Count != 0;
