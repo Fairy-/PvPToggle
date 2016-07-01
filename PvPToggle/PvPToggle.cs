@@ -208,7 +208,7 @@ namespace PvPToggle
                 {
                     plr.gemsCarried[args.Slot] = args.Type;
                 }
-                else if (args.Slot == 197)
+                else if (args.Slot == 179)
                 {
                     var item = TShock.Utils.GetItemByIdOrName(args.Type.ToString())[0];
                     plr.TSPlayer.GiveItem(item.type, item.name, item.width, item.height, 1);
