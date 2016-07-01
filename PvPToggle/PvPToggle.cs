@@ -212,7 +212,7 @@ namespace PvPToggle
                 {
                     var item = TShock.Utils.GetItemByIdOrName(args.Type.ToString())[0];
                     plr.TSPlayer.GiveItem(item.type, item.name, item.width, item.height, 1);
-                    TSPlayer.All.SendInfoMessage($"{plr.PlayerName} has just trashed a Large Gem!");
+                    TSPlayer.All.SendInfoMessage($"{plr.PlayerName} just tried to trash a Large Gem!");
                 }
             }
             else if (args.Type == 0)
@@ -300,6 +300,7 @@ namespace PvPToggle
                                 returnstring += " and dropped " + droppedstring.Trim();
                             }
                         }
+                        plr.previousGemsCarried.Clear();
                         plr.previousGemsCarried = new Dictionary<int, int>(plr.gemsCarried);
                         if (returnstring != "" && Config.announceGemPickup)
                         {
