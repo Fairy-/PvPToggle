@@ -191,10 +191,13 @@ namespace PvPToggle
         #region OnChestItemChange
         private static void onChestItemChange(object sender, GetDataHandlers.ChestItemEventArgs args)
         {
-            if ((args.Type >= 1522 && args.Type <= 1527) || args.Type == 3643)
+            if (Config.announceGemPickup)
             {
-                TSPlayer.All.SendInfoMessage($"A large gem has been stored in a {Main.chest[args.ID].name}!");
-                TShock.Log.Write($"A large gem has been stored in a {Main.chest[args.ID].name}! Position: {Main.chest[args.ID].x},{Main.chest[args.ID].y}", System.Diagnostics.TraceLevel.Info);
+                if ((args.Type >= 1522 && args.Type <= 1527) || args.Type == 3643)
+                {
+                    TSPlayer.All.SendInfoMessage($"A large gem has been stored in a {Main.chest[args.ID].name}!");
+                    TShock.Log.Write($"A large gem has been stored in a {Main.chest[args.ID].name}! Position: {Main.chest[args.ID].x},{Main.chest[args.ID].y}", System.Diagnostics.TraceLevel.Info);
+                }
             }
         }
         #endregion
@@ -203,27 +206,33 @@ namespace PvPToggle
         #region OnInventoryChange
         private static void onInventoryChange(object sender, GetDataHandlers.PlayerSlotEventArgs args)
         {
-            var plr = PvPplayer.Find(p => p.Index == args.PlayerId);
-            if ((args.Type >= 1522 && args.Type <= 1527) || args.Type == 3643)
+            if (Config.EnableGemMechanics)
             {
-                if ((args.Slot >= 0 && args.Slot <= 49) || args.Slot == 58 || (args.Slot >= 99 && args.Slot <= 178))
+                var plr = PvPplayer.Find(p => p.Index == args.PlayerId);
+                if ((args.Type >= 1522 && args.Type <= 1527) || args.Type == 3643)
                 {
-                    plr.gemsCarried[args.Slot] = args.Type;
-                }
-                else if (args.Slot == 179)
-                {
-                    var item = TShock.Utils.GetItemByIdOrName(args.Type.ToString())[0];
-                    plr.TSPlayer.GiveItem(item.type, item.name, item.width, item.height, 1);
-                    TSPlayer.All.SendInfoMessage($"{plr.PlayerName} just tried to trash a Large Gem!");
-                }
-            }
-            else if (args.Type == 0)
-            {
-                if ((args.Slot >= 0 && args.Slot <= 49) || args.Slot == 58 || (args.Slot >= 99 && args.Slot <= 178))
-                {
-                    if (plr.gemsCarried.ContainsKey(args.Slot))
+                    if ((args.Slot >= 0 && args.Slot <= 49) || args.Slot == 58 || (args.Slot >= 99 && args.Slot <= 178))
                     {
-                        plr.gemsCarried.Remove(args.Slot);
+                        plr.gemsCarried[args.Slot] = args.Type;
+                    }
+                    else if (args.Slot == 179)
+                    {
+                        var item = TShock.Utils.GetItemByIdOrName(args.Type.ToString())[0];
+                        plr.TSPlayer.GiveItem(item.type, item.name, item.width, item.height, 1);
+                        if (Config.announceGemPickup)
+                        {
+                            TSPlayer.All.SendInfoMessage($"{plr.PlayerName} just tried to trash a Large Gem!");
+                        }
+                    }
+                }
+                else if (args.Type == 0)
+                {
+                    if ((args.Slot >= 0 && args.Slot <= 49) || args.Slot == 58 || (args.Slot >= 99 && args.Slot <= 178))
+                    {
+                        if (plr.gemsCarried.ContainsKey(args.Slot))
+                        {
+                            plr.gemsCarried.Remove(args.Slot);
+                        }
                     }
                 }
             }
@@ -248,7 +257,7 @@ namespace PvPToggle
             {
                 foreach (var plr in PvPplayer)
                 {
-                    
+
                     if (Config.ForcePvPOnBloodMoon && (Main.dayTime || !Main.bloodMoon) && plr.PvPType.HasFlag(Player.PlayerPvPType.ForceBloodmoon))
                     {
                         plr.PvPType ^= Player.PlayerPvPType.ForceBloodmoon;
