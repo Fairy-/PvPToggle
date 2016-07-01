@@ -29,8 +29,6 @@ namespace PvPToggle
 
         private static bool forceTeam = false;
 
-        private static bool forceGem = false;
-
         private static int countTicks = 0;
 
         public override Version Version
@@ -193,7 +191,11 @@ namespace PvPToggle
         #region OnChestItemChange
         private static void onChestItemChange(object sender, GetDataHandlers.ChestItemEventArgs args)
         {
-
+            if ((args.Type >= 1522 && args.Type <= 1527) || args.Type == 3643)
+            {
+                TSPlayer.All.SendInfoMessage($"A large gem has been stored in a {Main.chest[args.ID].name}!");
+                TShock.Log.Write($"A large gem has been stored in a {Main.chest[args.ID].name}! Position: {Main.chest[args.ID].x},{Main.chest[args.ID].y}", System.Diagnostics.TraceLevel.Info);
+            }
         }
         #endregion
 
@@ -373,6 +375,7 @@ namespace PvPToggle
 
         #endregion
 
+        #region OnLeave
         private static void OnLeave(LeaveEventArgs args)
         {
             Player player = new Player(args.Who);
@@ -385,6 +388,7 @@ namespace PvPToggle
             lock (GemPlayer)
                 GemPlayer.RemoveAll(plr => plr.Index == args.Who);
         }
+        #endregion
 
         #region PvPSwitch
 
@@ -565,7 +569,7 @@ namespace PvPToggle
         }
         #endregion
 
-        #region LockToggle
+        #region ForceTeams
 
         private static void ForceTeams(CommandArgs args)
         {
@@ -685,6 +689,7 @@ namespace PvPToggle
             }
             if (plStr == "*off" || plStr == "alloff")
             {
+                forcePvP = false;
                 foreach (var pl in PvPplayer)
                     pl.PvPType ^= Player.PlayerPvPType.ForceOn;
 
